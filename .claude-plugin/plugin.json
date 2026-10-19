@@ -1,0 +1,18 @@
+{
+  "name": "chat-launch",
+  "description": "Make a 20-second chat-style launch video for a product in code, one continuous take at 130 BPM, on the product's real screens - a request typed into its own composer with a glow around it, the send flooding the screen and landing as the message, the product working one step a beat, a colour flood on the drop that bursts into its own result cards, the best one flying back into the chat, a click on its real action, and an outro where the button grows into the page and ends on the brand mark. Renders a tall (9:16) MP4 with sound. Use when the user asks for a launch video, product video, promo, teaser or motion graphics for a product you ask for something - an assistant, search, booking, ordering.",
+  "author": {
+    "name": "omnigami",
+    "url": "https://omnigami.ai"
+  },
+  "homepage": "https://omnigami.ai/skills/chat-launch",
+  "repository": "https://github.com/omnigami-ai/chat-launch",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "keywords": [
+    "video",
+    "launch video",
+    "product video",
+    "motion graphics",
+    "omnigami"
+  ]
+}

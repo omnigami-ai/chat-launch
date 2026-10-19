@@ -1,0 +1,268 @@
+{
+ "url": "http://localhost:4413/ostlery/app/#/",
+ "viewport": "mobile",
+ "ready": "html.ready",
+ "rects": {
+  "composer": ".composer",
+  "textarea": ".composer textarea",
+  "send": ".composer .send",
+  "bubble": ".msg.me .bubble",
+  "search": "[data-search]",
+  "spin": "[data-search] li.now .ck",
+  "count": "[data-search] li:last-child em",
+  "stays": "[data-stay]*",
+  "reply": ".reply*",
+  "acts": ".acts",
+  "book": "[data-action=\"book\"]",
+  "all": "[data-action=\"all\"]",
+  "thread": "[data-thread]",
+  "dock": ".dock"
+ },
+ "steps": [
+  {
+   "eval": "scrollTo(0, 0)"
+  },
+  {
+   "rects": "home"
+  },
+  {
+   "capture": "home",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "type": "textarea",
+   "text": "A lake cabin for 4 and our dog, Oct 30 to Nov 1, under $220 a night",
+   "capture": "ask",
+   "around": ".composer",
+   "pad": 0,
+   "scale": 4
+  },
+  {
+   "rects": "typed"
+  },
+  {
+   "eval": "(() => { const ta = document.querySelector('textarea'); ta.value = ''; ta.dispatchEvent(new Event('input', { bubbles: true })); })()"
+  },
+  {
+   "eval": "location.hash = '#/chat/lake-cabin/thinking'"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "(() => { const lis = [...document.querySelectorAll('[data-search] li')]; window.__ck = window.__ck || lis[0].querySelector('.ck').innerHTML; lis.forEach((li, i) => { li.style.display = i <= 0 ? '' : 'none'; li.className = i < 0 ? 'ok' : 'now'; li.querySelector('.ck').innerHTML = i < 0 ? window.__ck : '<i class=\"spin\"></i>'; }); })()"
+  },
+  {
+   "rects": "think-0"
+  },
+  {
+   "capture": "think-0",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const lis = [...document.querySelectorAll('[data-search] li')]; window.__ck = window.__ck || lis[0].querySelector('.ck').innerHTML; lis.forEach((li, i) => { li.style.display = i <= 1 ? '' : 'none'; li.className = i < 1 ? 'ok' : 'now'; li.querySelector('.ck').innerHTML = i < 1 ? window.__ck : '<i class=\"spin\"></i>'; }); })()"
+  },
+  {
+   "rects": "think-1"
+  },
+  {
+   "capture": "think-1",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const lis = [...document.querySelectorAll('[data-search] li')]; window.__ck = window.__ck || lis[0].querySelector('.ck').innerHTML; lis.forEach((li, i) => { li.style.display = i <= 2 ? '' : 'none'; li.className = i < 2 ? 'ok' : 'now'; li.querySelector('.ck').innerHTML = i < 2 ? window.__ck : '<i class=\"spin\"></i>'; }); })()"
+  },
+  {
+   "rects": "think-2"
+  },
+  {
+   "capture": "think-2",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const lis = [...document.querySelectorAll('[data-search] li')]; window.__ck = window.__ck || lis[0].querySelector('.ck').innerHTML; lis.forEach((li, i) => { li.style.display = i <= 3 ? '' : 'none'; li.className = i < 3 ? 'ok' : 'now'; li.querySelector('.ck').innerHTML = i < 3 ? window.__ck : '<i class=\"spin\"></i>'; }); })()"
+  },
+  {
+   "rects": "think-3"
+  },
+  {
+   "capture": "think-3",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const lis = [...document.querySelectorAll('[data-search] li')]; lis.forEach((li) => { li.style.display = ''; li.className = 'ok'; li.querySelector('.ck').innerHTML = window.__ck; }); const s = document.querySelector('[data-search]'); s.classList.remove('live'); s.classList.add('done'); s.querySelector('.sl').innerHTML = 'Checked 312 lake cabins \u00b7 <b>6 fit</b>'; })()"
+  },
+  {
+   "rects": "think-4"
+  },
+  {
+   "capture": "think-4",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/chat/lake-cabin'"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "window.__st = document.querySelector('[data-thread]').scrollTop"
+  },
+  {
+   "rects": "results"
+  },
+  {
+   "capture": "results",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const s = document.querySelector('[data-stays]'), c = s.querySelectorAll('[data-stay]')[0]; s.scrollLeft = c.offsetLeft - s.firstElementChild.offsetLeft; })()"
+  },
+  {
+   "capture": "stay-0",
+   "around": "[data-stay]",
+   "nth": 0,
+   "pad": 0,
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const s = document.querySelector('[data-stays]'), c = s.querySelectorAll('[data-stay]')[1]; s.scrollLeft = c.offsetLeft - s.firstElementChild.offsetLeft; })()"
+  },
+  {
+   "capture": "stay-1",
+   "around": "[data-stay]",
+   "nth": 1,
+   "pad": 0,
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const s = document.querySelector('[data-stays]'), c = s.querySelectorAll('[data-stay]')[2]; s.scrollLeft = c.offsetLeft - s.firstElementChild.offsetLeft; })()"
+  },
+  {
+   "capture": "stay-2",
+   "around": "[data-stay]",
+   "nth": 2,
+   "pad": 0,
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const s = document.querySelector('[data-stays]'), c = s.querySelectorAll('[data-stay]')[3]; s.scrollLeft = c.offsetLeft - s.firstElementChild.offsetLeft; })()"
+  },
+  {
+   "capture": "stay-3",
+   "around": "[data-stay]",
+   "nth": 3,
+   "pad": 0,
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const s = document.querySelector('[data-stays]'), c = s.querySelectorAll('[data-stay]')[4]; s.scrollLeft = c.offsetLeft - s.firstElementChild.offsetLeft; })()"
+  },
+  {
+   "capture": "stay-4",
+   "around": "[data-stay]",
+   "nth": 4,
+   "pad": 0,
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const s = document.querySelector('[data-stays]'), c = s.querySelectorAll('[data-stay]')[5]; s.scrollLeft = c.offsetLeft - s.firstElementChild.offsetLeft; })()"
+  },
+  {
+   "capture": "stay-5",
+   "around": "[data-stay]",
+   "nth": 5,
+   "pad": 0,
+   "scale": 4
+  },
+  {
+   "eval": "document.querySelector('[data-stays]').scrollLeft = 0"
+  },
+  {
+   "eval": "location.hash = '#/chat/lake-cabin/booking'"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "document.querySelector('[data-thread]').scrollTop = window.__st"
+  },
+  {
+   "rects": "booking"
+  },
+  {
+   "capture": "booking",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/chat/lake-cabin/booked'"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "document.querySelector('[data-thread]').scrollTop = window.__st"
+  },
+  {
+   "rects": "booked"
+  },
+  {
+   "capture": "booked",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  }
+ ]
+}
