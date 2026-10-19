@@ -12,7 +12,7 @@ In Claude Code:
 
 ```
 /plugin marketplace add omnigami-ai/skills
-/plugin install chat-launch@omnigami
+/plugin install omnigami-chat-launch@omnigami
 ```
 
 With the skills CLI, for Claude Code and other agents that read SKILL.md:
