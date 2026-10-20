@@ -90,6 +90,8 @@ effects come from omnigami's own kit; `scripts/sounds/kit.json` says what each
 one is for. A 130 BPM bed: pads and hats for 12 beats, then the drop. Mastered
 around −14 LUFS.
 
+The score's sound is `music.style`: here `'synth'`, the default. For the user's product, pick by what it is: `'organic'` for plants, food and drink, and other natural or handmade things; `'synth'` (oscillators, the default) for software and tools; `'felt'` (a sparse felt piano over a sub bass and a light kit) for a quiet, minimal film. In a break (`music.breaks`) the drums, bass and lead stop and the chords play on; the film's name seeds the key (always major), the progressions and the patterns.
+
 ## Banned
 
 Cuts; crossfades; blur-ins; 3D; particles; a camera that zooms in and out
