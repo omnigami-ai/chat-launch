@@ -20,9 +20,19 @@
 // the floods, the pill, the outro) stand on top of the captures and hand off to them. Tall (9:16).
 (() => {
   const { clamp, lerp, spring, rng, loadFont, loadImage, measure, fitText, roundRect, easeOutExpo, easeInOutCubic } = window.kit;
-  const FPS = 60, BEAT = 60 / 130, DURATION = 43 * BEAT; // 43 beats, 19.8 s
+  const FPS = 60, BEAT = 60 / 130;
+  // the founder's pauses (2026-10-21): pause for what the viewer needs to read or find, after a response arrives;
+  // never on the agent's own working (the checks and "6 fit" run straight into the drop, as they always did). Whole
+  // beats are inserted before these original beats (the timings below are written on the original 43-beat grid and
+  // shifted): 2 before the send (the typed request is read), 2 before the click (the reply arrives with its two
+  // actions, as one response, and is read; the cursor sets off 1.4 s after the buttons and hovers 0.45 s on "Book
+  // it"; two beats keep line 1 on a bar line, for the song's landing), 2 before line 1 leaves and 1 before the dot
+  // rides under line 2 (each closing line is read)
+  const INSERT = [[8, 2], [27, 2], [34, 2], [35, 1]];
+  const sh = (n) => n + INSERT.reduce((a, [k, d]) => a + (n >= k ? d : 0), 0); // an original beat's new beat
+  const DURATION = sh(43) * BEAT; // 50 beats, 23.1 s
   const W = 1080, H = 1920;
-  const b = (n) => n * BEAT;
+  const b = (n) => sh(n) * BEAT; // an original beat, at its new time
   const canvas = document.getElementById('c');
   const g = canvas.getContext('2d', { willReadFrequently: true });
   const helper = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d', { willReadFrequently: true })]; };
@@ -50,13 +60,13 @@
 
   // ---------- the beats (130 BPM; t in seconds) ----------
   // breathing room: the request holds a second before it sends, "6 fit" a second before the drop, the
-  // lifted best a second before it flies, the reply is read before the actions, the cursor rests before
+  // lifted best a second before it flies, the reply and its actions are read, the cursor rests before
   // its click, "Booked" holds a second, each closing line is read before the next
   const T = {
     send: b(8), toss: [b(10), b(11), b(12), b(13)], drop: b(16) - 0.06, dropEnd: b(16) + 0.16,
     burst: b(16) + 0.16, slide: [b(16) + 0.41, b(16) + 1.11], lift: b(19), chat: b(21) + 0.2, chatEnd: b(21) + 0.54,
-    reply: b(21) + 0.47, pan: [b(21) + 0.56, b(21) + 1.01], ask: b(21) + 0.84, pills: [b(25), b(25) + 0.08], click: b(27), spinner: [b(27) + 0.07, b(27) + 0.51], done: b(27) + 0.55,
-    fill: [b(31) - 0.07, b(31) + 0.22], labelOut: b(31) + 0.42, line1: b(32), line1Out: b(34), line2: b(34) + 0.09,
+    reply: b(21) + 0.47, pan: [b(21) + 0.56, b(21) + 1.01], ask: b(21) + 0.84, pills: [b(21) + 1.19, b(21) + 1.27], /* with the reply: one response */ click: b(27), spinner: [b(27) + 0.07, b(27) + 0.51], done: b(27) + 0.55,
+    fill: [b(31) - 0.07, b(31) + 0.22], labelOut: b(31) + 0.42, line1: b(32), line1Out: b(34), line2: b(34) + 0.23, /* the first line gone (0.22 s) before the second rises: never two lines in one band */
     route: [b(35) - 0.07, b(36) - 0.12], markIn: b(36) - 0.12, textOut: b(36) + 0.17, markMove: [b(36) + 0.27, b(36) + 0.85], word: b(36) + 0.9, tagline: b(36) + 1.2, kicker: b(36) + 1.35, // the mark waits as the dot until the line has gone
   };
   // flood 1: the send floods the screen and lands as Maya's message
@@ -113,7 +123,7 @@
   // a word or line rising out of a mask line: p 0 → 1 rises in, 1 → 2 rises out through the top
   function rise(c, draw, x, baseline, size, width, p) {
     if (p <= 0 || p >= 2) return;
-    const off = p < 1 ? (1 - easeOutExpo(p)) * size * 1.15 : -easeInOutCubic(p - 1) * size * 1.15;
+    const off = p < 1 ? (1 - easeOutExpo(p)) * size * 1.15 : -easeInOutCubic(p - 1) * size * 1.4; // out far enough that its descenders leave the band too (at 1.15 they lingered, then popped)
     c.save(); c.beginPath(); c.rect(x - size, baseline - size * 1.02, width + size * 2, size * 1.32); c.clip();
     c.translate(0, off); draw(); c.restore();
   }
@@ -191,9 +201,38 @@
         shot(c, name, [now[0] - 2, now[1] + now[3] - cap, now[2] + 4, cap + 2], now[0] - 2, bottom - cap);
       }
     }
-    // the working check spins
+    // the row just checked: its spinner gives way to the tick, which scales in (0.16 s), never swapped in one frame
+    if (k > 0) {
+      const was = R(`think-${k - 1}`, 'spin'), q = easeOutExpo(clamp((t - T.toss[k - 1]) / 0.16));
+      if (was && q < 1) {
+        const cx = was[0] + was[2] / 2, cy = was[1] + was[3] / 2;
+        c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, 11, 0, Math.PI * 2); c.fill();
+        c.save(); c.globalAlpha = q; c.translate(cx, cy); c.scale(0.5 + 0.5 * q, 0.5 + 0.5 * q); c.translate(-cx, -cy); shot(c, name, [was[0] - 1, was[1] - 1, was[2] + 2, was[3] + 2]); c.restore();
+      }
+    }
+    // the search's label: "Looking at 312 lake cabins" rolls up and out, "Checked 312 lake cabins · 6 fit" rolls in
+    if (k === 4) {
+      const card = R(name, 'search'), L = [card[0] + 14, card[1] + 12, card[2] - 28, 26], u = clamp((t - T.toss[3]) / 0.3);
+      if (u < 1) {
+        const out = easeInOutCubic(clamp(u / 0.4)), inn = easeOutExpo(clamp((u - 0.4) / 0.6)); // one line at a time
+        c.fillStyle = '#fff'; c.fillRect(L[0], L[1], L[2], L[3]);
+        c.save(); c.beginPath(); c.rect(L[0], L[1], L[2], L[3]); c.clip();
+        if (out < 1) { c.globalAlpha = 1 - out; shot(c, 'think-3', L, L[0], L[1] - out * 14); }
+        if (inn > 0) { c.globalAlpha = inn; shot(c, name, L, L[0], L[1] + (1 - inn) * 14); }
+        c.restore();
+      }
+    }
+    // the working check spins at its row's place; while the card grows to take that row, the card's sliding
+    // bottom edge reveals it, as it does the row's label (unclipped, it hung below the card for a few frames)
     const sp = k < 4 ? R(name, 'spin') : null;
-    if (sp) { const cx = sp[0] + sp[2] / 2, cy = sp[1] + sp[3] / 2; c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, 10.5, 0, Math.PI * 2); c.fill(); spinArc(c, cx, cy, 7, t, OK, 2); }
+    if (sp) {
+      const now = R(name, 'search');
+      let bottom = now[1] + now[3];
+      if (k > 0) { const was = R(`think-${k - 1}`, 'search'); bottom = lerp(was[1] + was[3], bottom, spring(t - T.toss[k - 1], 300, 26)); }
+      const cx = sp[0] + sp[2] / 2, cy = sp[1] + sp[3] / 2;
+      c.save(); c.beginPath(); c.rect(now[0], now[1], now[2], bottom - now[1] - 2); c.clip();
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, 10.5, 0, Math.PI * 2); c.fill(); spinArc(c, cx, cy, 7, t, OK, 2); c.restore();
+    }
   }
   // chat: the answer page, its reply rising, its two actions popping in, then the booking
   function chatScreen(c, t) {
@@ -269,10 +308,10 @@
   }
 
   // ---------- the cursor (world; it rides the camera) ----------
-  const CUR = [[-0.8, -70, 905], [-0.63, 30, 770]]; // seconds before the click: it enters, passes, and rests on the button 0.5 s before it clicks
+  const CUR = [[-0.85, -70, 905], [-0.62, 30, 770]]; // seconds before the click: it enters, passes, and hovers on the button 0.45 s before it clicks
   function cursorAt(t) {
     if (t < T.click + CUR[0][0]) return null;
-    const B = R('results', 'book'), pts = [...CUR, [-0.5, B[0] + 40, B[1] + 28]].map(([d, x, y]) => [T.click + d, x, y]);
+    const B = R('results', 'book'), pts = [...CUR, [-0.45, B[0] + 40, B[1] + 28]].map(([d, x, y]) => [T.click + d, x, y]);
     for (let i = 1; i < pts.length; i++) if (t <= pts[i][0]) { const [ta, xa, ya] = pts[i - 1], [tb, xb, yb] = pts[i], p = (t - ta) / (tb - ta), e = 1 - (1 - p) ** 3; return [lerp(xa, xb, e), lerp(ya, yb, e)]; }
     return [pts[pts.length - 1][1], pts[pts.length - 1][2]];
   }
@@ -332,10 +371,14 @@
       if (t < T.markIn) { g.beginPath(); g.arc(hx, y, 10, 0, Math.PI * 2); g.fillStyle = EMBER; g.fill(); }
     }
     if (t >= T.markIn) {
-      // one move: the dot grows into the mark as it glides, upright, into the lockup (size eased in log space)
-      const L = lockup(), mv = (() => { const q = clamp((t - T.markMove[0]) / (T.markMove[1] - T.markMove[0])); return q < 0.35 ? 0.5 * (q / 0.35) ** 2 : 1 - 0.5 * ((1 - q) / 0.65) ** 2.4; })();
+      // one move: the dot grows into the mark as it glides, upright, into the lockup (size eased in log space). It
+      // waits at the end as the dot and becomes the mark only once it's moving (q 0.12-0.24), so the swap is hidden
+      // in the rise; the dot eases onto the mark's centre (a quarter of its height above its anchor) as it grows
+      const L = lockup(), q = clamp((t - T.markMove[0]) / (T.markMove[1] - T.markMove[0])), mv = q < 0.35 ? 0.5 * (q / 0.35) ** 2 : 1 - 0.5 * ((1 - q) / 0.65) ** 2.4;
       const h = Math.exp(lerp(Math.log(20), Math.log(L.mh), mv)), x = lerp(x1, L.mx, mv), yy = lerp(y, L.my, mv), rot = 0;
-      drawMark(g, x, yy, h, rot, EMBER);
+      const swap = clamp((q - 0.12) / 0.12);
+      if (swap < 1) { g.save(); g.globalAlpha = 1 - swap; g.beginPath(); g.arc(x, yy - h * 0.25 + 5 * clamp(1 - q / 0.12), h / 2, 0, Math.PI * 2); g.fillStyle = EMBER; g.fill(); g.restore(); }
+      if (swap > 0) { g.save(); g.globalAlpha = swap; drawMark(g, x, yy, h, rot, EMBER); g.restore(); }
       // the wordmark rises out of its line under the mark, then the tagline; the kicker above
       rise(g, () => text(g, WORDMARK, W / 2, L.base, NEWS(600)(170), PAPER, 'center', 'alphabetic'), 0, L.base, 170, W, clamp((t - T.word) / 0.4));
       rise(g, () => text(g, V.tagline, W / 2, L.tagline, FIG(400)(56), PAPER, 'center', 'alphabetic'), 0, L.tagline, 56, W, clamp((t - T.tagline) / 0.35));
@@ -465,18 +508,18 @@
     pop(T.line1, 0.38); pop(T.line2, 0.38); pop(T.markIn, 0.42); swish(T.markMove[0], 'container', 0.5, 0.28); pop(T.word, 0.4); pop(T.tagline, 0.32);
     return out.sort((a, b2) => a.t - b2.t);
   }
-  // the bed: 130 BPM; the drop lands on beat 16 (bar 4); no riser
+  // the bed: 130 BPM; the drop lands on beat 18 (bar 4.5: the request's two beats come before it); no riser
   const music = {
     bpm: 130, duration: DURATION, root: 45,
     chords: [[0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, -1, 2]],
     sections: [
-      { from: 0, to: 4, pad: 0.7, hats: 0.3 },
-      { from: 4, to: 11, kick: 0.85, hats: 0.6, clap: 0.45, bass: 0.75, pad: 0.5 },
+      { from: 0, to: 4.5, pad: 0.7, hats: 0.3 },
+      { from: 4.5, to: 14, kick: 0.85, hats: 0.6, clap: 0.45, bass: 0.75, pad: 0.5 },
     ],
   };
   const STATES = [[0, 'Ask'], [T.send, 'Send'], [T.send + 0.45, 'Search'], [T.drop, 'Drop'], [T.slide[0], 'Stays'], [T.lift, 'Best fit'], [T.chat, 'Chat'], [T.click, 'Book it'], [T.done, 'Booked'], [T.fill[0], 'Fill'], [T.line1, 'Line 1'], [T.line2 - 0.1, 'Line 2'], [T.textOut, 'Mark']];
   window.template = { fps: FPS, duration: DURATION, sizes: { '9:16': [1080, 1920] }, width: W, height: H, defaults: () => ({ size: '9:16', ...DEFAULTS }), fields: FIELDS, states: STATES, prepare, seek: (t, values) => seek(t, values), cues, music,
-    keyTimes: [1.6, 3.2, 4.0, 4.9, 6.5, 7.6, 8.2, 9.2, 10.1, 11.0, 12.0, 12.8, 13.5, 14.5, 15.3, 16.2, 17.4, 18.6] };
+    keyTimes: [1.6, 3.2, b(8) + 0.3, b(10) + 0.3, b(13) + 0.5, b(16) + 0.3, b(17) + 0.3, b(19) + 0.4, b(21) + 0.4, b(22) + 0.4, b(25) + 0.3, b(27) - 0.4, b(27) + 0.6, b(29), b(32) + 0.5, b(34) + 0.6, b(36) + 0.9, DURATION - 1.2] };
   const q = new URLSearchParams(location.search);
   if (window.parent === window && !q.has('render')) prepare().then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION, {}); requestAnimationFrame(loop); }; loop(); });
 })();

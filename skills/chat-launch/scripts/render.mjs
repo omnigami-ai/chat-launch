@@ -14,6 +14,9 @@
 //                            a film's template.shutters can widen it in places)
 //     --sound                add effects from the sound kit on the film's cues (needs --video)
 //     --music                add the film's own score (window.template.music), synthesised (needs --video)
+//     --audio-only           with --music or --audio: the film's soundtrack alone, mixed and levelled as --video
+//                            mixes it, as <name>-score.m4a or <name>-song.m4a; no frames are rendered (a second
+//                            track for a film already rendered: the site's music toggle)
 //     --audio song.wav       a song instead of --music (needs --video), fitted by song.mjs: it starts on
 //                            a bar line, and on the last bar line at least 3.5 s before the end lands one
 //                            hit and closes down and fades (with its stems, in song-stems/ beside it or
@@ -149,15 +152,17 @@ try {
       console.log(`wrote ${file}`);
     }
 
-    if (flag('video')) {
-      const silent = path.join(outDir, `${name}-silent.mp4`), file = path.join(outDir, `${name}.mp4`);
+    const audioOnly = flag('audio-only');
+    if (flag('video') || audioOnly) {
+      const silent = path.join(outDir, `${name}-silent.mp4`), file = path.join(outDir, audioOnly ? `${name}-${opt('audio') ? 'song' : 'score'}.m4a` : `${name}.mp4`);
       const sub = Math.max(1, Number(opt('blur', 1)));
       // the film's delivery spec for this size, if it has one: a set bitrate, profile and level
       const spec = (meta.encode && meta.encode[size]) || null;
       const rate = spec ? ['-profile:v', spec.profile || 'high', '-level:v', String(spec.level || '4.0'), '-b:v', spec.bitrate, '-maxrate', spec.maxrate || spec.bitrate, '-bufsize', spec.bufsize || spec.maxrate || spec.bitrate, ...(spec.minrate ? ['-minrate', spec.minrate] : []), ...(spec.x264 ? ['-x264-params', spec.x264] : [])] : ['-crf', '17'];
       const vf = sub > 1 ? ['-vf', `tmix=frames=${sub},select='eq(mod(n\\,${sub})\\,${sub - 1})',setpts=N/${fps}/TB`] : [];
-      const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(fps * sub), '-i', '-', ...vf, '-r', String(fps), '-c:v', 'libx264', ...rate, '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
       const total = Math.round(meta.duration * fps);
+      if (!audioOnly) {
+      const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(fps * sub), '-i', '-', ...vf, '-r', String(fps), '-c:v', 'libx264', ...rate, '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
       for (let i = 0; i < total; i++) {
         for (let k = 0; k < sub; k++) {
           const t0 = i / fps;
@@ -172,6 +177,9 @@ try {
       }
       ff.stdin.end();
       await new Promise((r) => ff.on('close', r));
+      }
+      // audio alone: a silent source of the film's length stands in for the video, so the inputs keep their places
+      const base = audioOnly ? ['-f', 'lavfi', '-t', String(meta.duration), '-i', 'anullsrc=r=48000:cl=stereo'] : ['-i', silent];
       const tracks = []; // [file, volume]
       const song = opt('audio');
       if (song && flag('music')) console.log('--audio replaces --music: the film\'s own score is left out');
@@ -225,13 +233,17 @@ try {
         // Leave 1 dB for 48 kHz resampling and AAC intersample overshoot;
         // decoded exports should retain about −1.5 dBTP of peak headroom.
         const target = 'I=-14:TP=-2.5:LRA=11';
-        const report = await capture('ffmpeg', ['-hide_banner', '-nostats', '-i', silent, ...inputs, '-filter_complex', mix(`loudnorm=${target}:print_format=json`), '-map', '[a]', '-f', 'null', '-']);
+        const report = await capture('ffmpeg', ['-hide_banner', '-nostats', ...base, ...inputs, '-filter_complex', mix(`loudnorm=${target}:print_format=json`), '-map', '[a]', '-f', 'null', '-']);
         const m = JSON.parse(report.slice(report.lastIndexOf('{'), report.lastIndexOf('}') + 1));
         const graph = mix(`loudnorm=${target}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`);
-        await run('ffmpeg', ['-loglevel', 'error', '-y', '-i', silent, ...inputs, '-filter_complex', graph, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', (spec && spec.audioBitrate) || '192k', '-movflags', '+faststart', file]);
-        await rm(silent);
-      } else await run('mv', [silent, file]);
-      console.log(`wrote ${file} (${total} frames${tracks.length ? ', with sound' : ''})`);
+        if (audioOnly) await run('ffmpeg', ['-loglevel', 'error', '-y', ...base, ...inputs, '-filter_complex', graph, '-map', '[a]', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', file]);
+        else {
+          await run('ffmpeg', ['-loglevel', 'error', '-y', '-i', silent, ...inputs, '-filter_complex', graph, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', (spec && spec.audioBitrate) || '192k', '-movflags', '+faststart', file]);
+          await rm(silent);
+        }
+      } else if (audioOnly) throw new Error('--audio-only needs --music (and a score in window.template.music) or --audio');
+      else await run('mv', [silent, file]);
+      console.log(audioOnly ? `wrote ${file} (${meta.duration} s of sound)` : `wrote ${file} (${total} frames${tracks.length ? ', with sound' : ''})`);
     }
 
     if (flag('stress')) {

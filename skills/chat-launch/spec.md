@@ -19,7 +19,7 @@ Canvas `#f5f5f2`; outro `#0d0c0f`. Geist for UI; a serif wordmark at the end.
 shapes for an earlier example product, its screens drawn in code (the "First
 rebuild" column below). It is now Ostlery's, tall only, on the app's captured screens, with
 whole beats added wherever a result needs a second to land (43 beats,
-19.8 s); `style.md`'s states table maps
+19.8 s; since 2026-10-21, 50 beats, 23.1 s, with reading time for its words); `style.md`'s states table maps
 every beat. The measurements below are still the original's.
 
 The original is wide only, and everything below is measured in wide. Our film

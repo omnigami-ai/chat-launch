@@ -8,7 +8,13 @@ reference film here is our own, built and measured against it (`spec.md`).
 
 - **One continuous take, on the product's real screens.** Every scene is made out of the one before it: the send floods the screen and lands as the message, the working card grows a row a beat, a colour floods out of its last count, the results burst out of the flood, the flood gathers in behind the best one as it flies home, the button grows into the page. The screens are captures; the film's own shapes (the glow, the floods, the button, the outro) stand on top of them and hand off to them.
 - **The camera makes one move per scene** on eased keyframes, and never zooms in and out back to back: a slow push while typing, a pull back and push onto the working card as the message lands, a slow push while it works, a pan down the chat, a push into the button.
-- **Something happens on every beat, and every result lands:** 130 BPM, a beat every 0.4615 s, 43 beats, 19.8 s. The drop is beat 16. The original's beats were too tight to read (a request sent the instant it's typed, a result gone in a third of a second), so ours add whole beats: the full request holds a second before it sends, the last count a second before the drop, the lifted best a second before it flies, the reply is read before the actions arrive, the cursor rests half a second before its click, the done state holds a second, and each closing line is read before the next.
+- **Something happens on every beat, and every result lands:** 130 BPM, a beat every 0.4615 s, 50 beats, 23.1 s. The drop is beat 18. The original's beats were too tight to read (a request sent the instant it's typed, a result gone in a third of a second), so ours add whole beats, but only where the viewer has something to read or find: pause after a response arrives, never on the product's own working (the founder, 2026-10-21: words to read get about a quarter second a word; a big move gets room before the press that follows it; the checks, the counts and the cards bursting are the product working and keep their pace; a hold is simply still, never a slow push that stops):
+  - the typed request holds 2.1 s before it sends (16 words, most read as they type);
+  - the checks run straight on, and "Checked 312 lake cabins · 6 fit" goes into the drop at the original's pace;
+  - the lifted best holds a second before it flies;
+  - the reply arrives with its two actions, as one response (the buttons follow the question by a third of a second), then holds still to be read: the cursor sets off about 1.4 s after the buttons settle and hovers 0.45 s on "Book it" before it clicks, a natural hover then click (reply to click, 3.2 s);
+  - the done state holds a second;
+  - each closing line is read before the next: line 1 (8 words) for 1.85 s, line 2 (4 words) for 1.3 s.
 - **The product's own colours:** its paper behind the phone, its ink for the outro, one accent for the floods, the dot and the mark (Ostlery: ember `#C2482B`), and the product's done colour where it has one (Ostlery's green "Booked"). A soft rotating glow around the composer while it's typed, and around the phone while it works; none after the drop.
 - **Text rises out of a mask line** and leaves through the top. The outro lines rise word by word.
 - **Every click has a press state**; shapes change in one move (see Motion).
@@ -35,20 +41,19 @@ radius is 1.23 × the distance to the far corner.
 | t (s) | beat | State | What it becomes for another product |
 |---|---|---|---|
 | 0.00 | 0 | ask | the one request, typed into the product's composer (a capture per keystroke, done by 2.5 s), a glow around it; it holds |
-| 3.69 | 8 | send | the send button is pressed; the accent floods the screen from it (0.22 s) and lands as the message (to 4.31); its words rise in |
-| 4.62–6.00 | 10–13 | four tosses | the product does one thing per beat (Ostlery: a check ticks and its count shows; the card grows a row); the last result holds |
-| 7.32 | 16 | drop | the accent floods out of the last count, edge to edge in 0.2 s |
-| 7.54 | 16 | results | the product's own result cards burst from the centre |
-| 7.79 | 17 | slide | the column slides three cards onto the best one |
-| 8.77 | 19 | best | it lifts, and holds |
-| 9.89 | 21 | chat | the flood gathers in behind the best card as it flies into its slot in the chat; the others fly off |
-| 10.16 | 22 | reply | the reply rises line by line, then the question |
-| 11.54 | 25 | two actions | the product's two real next steps pop in |
-| 12.46 | 27 | click | the cursor has rested 0.5 s; press; the label leaves, the working state rises with its spinner; the done state (13.01) fills out from its check and holds |
-| 14.24 | 31 | fill | the button grows into the page, its done label to headline size |
-| 14.77 | 32 | line 1 | what the user wanted, in a few words |
-| 15.78 | 34 | line 2 | what the product did; a dot rides a line to the end |
-| 16.50 | 36 | mark | the dot waits as the line leaves, then grows into the mark as it glides to the centre; the wordmark rises under it, then the tagline and the kicker; the end card holds to 19.8 |
+| 4.61 | 10 | send | the send button is pressed; the accent floods the screen from it (0.22 s) and lands as the message (to 5.23); its words rise in |
+| 5.54–6.92 | 12–15 | four tosses | the product does one thing per beat (Ostlery: a check ticks and its count shows; the card grows a row, its spinner riding the card's growing edge); the last result holds |
+| 8.25 | 18 | drop | the accent floods out of the last count, edge to edge in 0.2 s |
+| 8.47 | 18 | results | the product's own result cards burst from the centre |
+| 8.72 | 19 | slide | the column slides three cards onto the best one |
+| 9.69 | 21 | best | it lifts, and holds |
+| 10.82 | 23 | chat | the flood gathers in behind the best card as it flies into its slot in the chat; the others fly off |
+| 11.09 | 24 | reply | the reply rises line by line, then the question (11.46), then the product's two real next steps (11.81): one response; it holds still to be read |
+| 14.31 | 31 | click | the cursor (in at 13.46) has hovered 0.45 s; press; the label leaves, the working state rises with its spinner; the done state (14.86) fills out from its check and holds |
+| 16.08 | 35 | fill | the button grows into the page, its done label to headline size |
+| 16.62 | 36 | line 1 | what the user wanted, in a few words |
+| 18.69 | 40 | line 2 | what the product did; a dot rides a line to the end |
+| 19.73 | 43 | mark | the dot waits at the end as the line leaves, sets off upward (20.12) and only then becomes the mark, crossfading in the first tenth of its move so the swap hides in the motion; it grows into the mark as it glides to the centre; the wordmark rises under it, then the tagline and the kicker; the end card holds to 23.1 |
 
 ## The result cards
 
@@ -78,7 +83,7 @@ its body text at 30 px or more.
 - **Presses:** a pressed thing sinks to 0.95 over the 0.07 s before the click and comes back over 0.22 s; the cursor shrinks to 0.86.
 - **Floods:** the send's radius grows as p^1.3 over 0.22 s, then the flood contracts in one move into the message (0.36 s); the drop's grows as p^1.25 over 0.2 s to past the far corner; after the burst it gathers into the best card's outline behind it.
 - **The button's growth** is a zoom: log-space, ease-out, 0.29 s; its colour turns from the done colour to the outro's ink as it grows.
-- **The mark** waits as the dot while the line leaves, then grows (log space) and glides upright to the centre of the end card in one move: fast out, soft landing. The end card is stacked (kicker, mark, wordmark, tagline), so the mark never reads as a letter beside the name.
+- **The mark** waits as the dot while the line leaves, then grows (log space) and glides upright to the centre of the end card in one move: fast out, soft landing. The dot becomes the mark only once it's moving (a 4-frame crossfade at the same size and centre, early in the rise), never on the stopped dot, where the swap would show. The end card is stacked (kicker, mark, wordmark, tagline), so the mark never reads as a letter beside the name.
 - **Motion blur:** 4 sub-frames (`--blur 4`).
 
 ## Sound
@@ -87,7 +92,7 @@ A `tick` per keystroke, a `tap` on the send and the click, `swish`es on the
 floods, the burst, the slide, the chat, the fill and the mark's move (each with
 its `motion`), a `pop` per toss and on each arrival. No impacts or risers. The
 effects come from omnigami's own kit; `scripts/sounds/kit.json` says what each
-one is for. A 130 BPM bed: pads and hats for 12 beats, then the drop. Mastered
+one is for. A 130 BPM bed: pads and hats for 18 beats, then the drop. Mastered
 around −14 LUFS.
 
 The score's sound is `music.style`: here `'synth'`, the default. For the user's product, pick by what it is: `'organic'` for plants, food and drink, and other natural or handmade things; `'synth'` (oscillators, the default) for software and tools; `'felt'` (a sparse felt piano over a sub bass and a light kit) for a quiet, minimal film. In a break (`music.breaks`) the drums, bass and lead stop and the chords play on; the film's name seeds the key (always major), the progressions and the patterns.
