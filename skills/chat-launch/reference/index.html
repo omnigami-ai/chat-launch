@@ -1,0 +1,525 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ostlery · Chat launch</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #ECE6DB; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+</style>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="kit.js"></script>
+<script src="assets/screens/screens.js"></script> <!-- the captures and their rects: plans/mobile.json, written by scripts/screens.mjs -->
+<script>
+// Chat launch for Ostlery, a fictional company made for omnigami's examples (cast/ostlery):
+// an assistant that finds small stays and books them. One continuous take at 130 BPM. Maya types
+// her trip into Ostlery's real composer; the send floods the screen and lands as her message; the
+// search ticks one check a beat; the drop floods the frame and bursts into the six stays; the best
+// fit flies back into the chat; the cursor books it; the button grows into the page, two lines, the
+// mark. Every screen is Ostlery's app, captured (plans/mobile.json); the film's own shapes (the glow,
+// the floods, the pill, the outro) stand on top of the captures and hand off to them. Tall (9:16).
+(() => {
+  const { clamp, lerp, spring, rng, loadFont, loadImage, measure, fitText, roundRect, easeOutExpo, easeInOutCubic } = window.kit;
+  const FPS = 60, BEAT = 60 / 130;
+  // the founder's pauses (2026-10-21): pause for what the viewer needs to read or find, after a response arrives;
+  // never on the agent's own working (the checks and "6 fit" run straight into the drop, as they always did). Whole
+  // beats are inserted before these base beats (the timings below are written on the base 43-beat grid and
+  // shifted): 2 before the send (the typed request is read), 2 before the click (the reply arrives with its two
+  // actions, as one response, and is read; the cursor sets off 1.4 s after the buttons and hovers 0.45 s on "Book
+  // it"; two beats keep line 1 on a bar line, for the song's landing), 2 before line 1 leaves and 1 before the dot
+  // rides under line 2 (each closing line is read)
+  const INSERT = [[8, 2], [27, 2], [34, 2], [35, 1]];
+  const sh = (n) => n + INSERT.reduce((a, [k, d]) => a + (n >= k ? d : 0), 0); // a base beat's new beat
+  const DURATION = sh(43) * BEAT; // 50 beats, 23.1 s
+  const W = 1080, H = 1920;
+  const b = (n) => sh(n) * BEAT; // a base beat, at its new time
+  const canvas = document.getElementById('c');
+  const g = canvas.getContext('2d', { willReadFrequently: true });
+  const helper = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d', { willReadFrequently: true })]; };
+  const [glowC, GL] = helper(W / 4, H / 4); // the composer's glow, drawn at quarter size and blurred
+
+  // ---------- Ostlery: colour, type, mark (cast/ostlery/brand.md) ----------
+  const BG = '#ECE6DB', PAPER = '#F7F4EE', INK = '#17191F', EMBER = '#C2482B', OK = '#2E7A57', MUTED = '#8A8F98', CARDLINE = '#E3DDD2';
+  const FIG = (w) => (s) => `${w} ${s}px Figtree`, NEWS = (w) => (s) => `${w} ${s}px Newsreader`;
+  // the mark: doors within doors, in a 100-unit square (cast/ostlery/mark.svg)
+  const MARK = [new Path2D('M8 92V50a42 42 0 0 1 84 0v42h-8V50a34 34 0 0 0-68 0v42z'), new Path2D('M24 92V50a26 26 0 0 1 52 0v42h-8V50a18 18 0 0 0-36 0v42z'), new Path2D('M40 92V50a10 10 0 0 1 20 0v42z')];
+
+  // ---------- the words: named fields (the film's own words; the screens' words are the app's) ----------
+  const DEFAULTS = {
+    line1: 'A lake cabin for four, and the dog.',
+    line2: 'Booked in one message.',
+    tagline: 'Tell it the trip.',
+  };
+  const FIELDS = [
+    { id: 'line1', type: 'text', label: 'Outro line 1', maxLength: 40, help: 'What the user wanted, in a few words.' },
+    { id: 'line2', type: 'text', label: 'Outro line 2', maxLength: 34, help: 'What the product did for them.' },
+    { id: 'tagline', type: 'text', label: 'Tagline', maxLength: 30 },
+  ];
+  const KICKER = 'Small stays, found and booked', WORDMARK = 'ostlery', DONE = 'Booked';
+  let V = DEFAULTS; // set from seek's arguments on every frame
+
+  // ---------- the beats (130 BPM; t in seconds) ----------
+  // breathing room: the request holds a second before it sends, "6 fit" a second before the drop, the
+  // lifted best a second before it flies, the reply and its actions are read, the cursor rests before
+  // its click, "Booked" holds a second, each closing line is read before the next
+  const T = {
+    send: b(8), toss: [b(10), b(11), b(12), b(13)], drop: b(16) - 0.06, dropEnd: b(16) + 0.16,
+    burst: b(16) + 0.16, slide: [b(16) + 0.41, b(16) + 1.11], lift: b(19), chat: b(21) + 0.2, chatEnd: b(21) + 0.54,
+    reply: b(21) + 0.47, pan: [b(21) + 0.56, b(21) + 1.01], ask: b(21) + 0.84, pills: [b(21) + 1.19, b(21) + 1.27], /* with the reply: one response */ click: b(27), spinner: [b(27) + 0.07, b(27) + 0.51], done: b(27) + 0.55,
+    fill: [b(31) - 0.07, b(31) + 0.22], labelOut: b(31) + 0.42, line1: b(32), line1Out: b(34), line2: b(34) + 0.23, /* the first line gone (0.22 s) before the second rises: never two lines in one band */
+    route: [b(35) - 0.07, b(36) - 0.12], markIn: b(36) - 0.12, textOut: b(36) + 0.17, markMove: [b(36) + 0.27, b(36) + 0.85], word: b(36) + 0.9, tagline: b(36) + 1.2, kicker: b(36) + 1.35, // the mark waits as the dot until the line has gone
+  };
+  // flood 1: the send floods the screen and lands as Maya's message
+  const SEND = { flood: [T.send, T.send + 0.22], swap: T.send + 0.24, land: [T.send + 0.26, T.send + 0.62], words: T.send + 0.58 };
+
+  // ---------- the world: the phone's screen, in the app's CSS px ----------
+  // Captures are 390 × 844; the phone's screen (an unbranded phone, photographed, its screen cut out)
+  // is 390 wide and as tall as its photograph's screen, with a 44 px status bar above the page.
+  const PHONE_SCREEN = [25, 26, 490, 1118];        // the screen's rect in phone.png's pixels
+  const BAR = 44, SW = 390, SH = SW * PHONE_SCREEN[3] / PHONE_SCREEN[2];
+  const SCREEN = { x: 0, y: -BAR, w: SW, h: SH, r: 40 };
+  const SCR = { img: {}, scale: 4, rects: {}, caps: {} }; // filled from assets/screens/screens.json
+  const R = (state, name) => SCR.rects[state][name];
+  // a capture's region [x, y, w, h] (its page px) drawn at [x, y] in the world
+  function shot(c, name, [sx, sy, sw, sh], dx = sx, dy = sy, dw = sw, dh = sh) {
+    const C = SCR.caps[name], k = SCR.scale; c.drawImage(SCR.img[name], (sx - C.rect[0]) * k, (sy - C.rect[1]) * k, sw * k, sh * k, dx, dy, dw, dh);
+  }
+  const page = (c, name) => shot(c, name, [0, 0, 390, 844]);
+
+  // ---------- the camera: [t, zoom, x, y] (the world point at the frame's centre), eased ----------
+  function camKeys() {
+    const bk = R('results', 'book');
+    return [
+      [0, 2.75, 195, 444, 'soft'],
+      [T.send - 0.07, 2.9, 195, 444, 'hold'],
+      [T.send + 0.03, 2.9, 195, 444, 'smooth'],
+      [T.send + 0.83, 2.85, 195, 262, 'lin'],
+      [T.drop, 2.98, 195, 262, 'hold'],
+      [T.chat, 2.45, 195, 470, 'hold'],
+      [T.pan[0], 2.45, 195, 470, 'inout'],
+      [T.pan[1], 2.6, 195, 548, 'hold'],
+      [T.fill[0], 2.6, 195, 548, 'smooth'],
+      [T.fill[1], 4.8, bk[0] + 60, bk[1] + bk[3] / 2, 'hold'],
+    ];
+  }
+  const EASE = { lin: (p) => p, soft: (p) => lerp(p, 1 - (1 - p) ** 2, 0.5), smooth: (p) => p * p * (3 - 2 * p), inout: easeInOutCubic, hold: () => 0 };
+  function cam(t) {
+    const K = camKeys();
+    if (t <= K[0][0]) return { z: K[0][1], x: K[0][2], y: K[0][3] };
+    for (let i = 1; i < K.length; i++) if (t < K[i][0]) {
+      const a = K[i - 1], c = K[i], e = EASE[a[4]]((t - a[0]) / (c[0] - a[0]));
+      return { z: Math.exp(lerp(Math.log(a[1]), Math.log(c[1]), e)), x: lerp(a[2], c[2], e), y: lerp(a[3], c[3], e) };
+    }
+    const e = K[K.length - 1]; return { z: e[1], x: e[2], y: e[3] };
+  }
+  const toScreen = (c, x, y) => [W / 2 + (x - c.x) * c.z, H / 2 + (y - c.y) * c.z];
+  const useCam = (c) => g.setTransform(c.z, 0, 0, c.z, W / 2 - c.x * c.z, H / 2 - c.y * c.z);
+
+  // ---------- helpers ----------
+  function text(c, s, x, y, font, colour, align = 'left', base = 'middle') {
+    c.font = font; c.fillStyle = colour; c.textAlign = align;
+    if (base === 'middle') window.kit.centreText(c, s, x, y); else { c.textBaseline = base; c.fillText(s, x, y); } // 'middle': centred on the capitals
+  }
+  // a word or line rising out of a mask line: p 0 → 1 rises in, 1 → 2 rises out through the top
+  function rise(c, draw, x, baseline, size, width, p) {
+    if (p <= 0 || p >= 2) return;
+    const off = p < 1 ? (1 - easeOutExpo(p)) * size * 1.15 : -easeInOutCubic(p - 1) * size * 1.4; // out far enough that its descenders leave the band too (at 1.15 they lingered, then popped)
+    c.save(); c.beginPath(); c.rect(x - size, baseline - size * 1.02, width + size * 2, size * 1.32); c.clip();
+    c.translate(0, off); draw(); c.restore();
+  }
+  const riseP = (t, tin, tout, dur = 0.3) => (t < tout ? clamp((t - tin) / dur) : 1 + clamp((t - tout) / 0.22));
+  // a press: 0 → 1 over the 0.07 s before a click lands at tc, back over the 0.22 s after
+  const press = (t, tc) => (t < tc - 0.07 ? 0 : t < tc ? easeOutExpo((t - tc + 0.07) / 0.07) : 1 - easeInOutCubic(clamp((t - tc) / 0.22)));
+  const sink = (c, x, y, k) => { c.translate(x, y); c.scale(k, k); c.translate(-x, -y); };
+  function drawCheck(c, x, y, s, p, col, lw) {
+    c.strokeStyle = col; c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round';
+    const pts = [[-0.5, 0.02], [-0.14, 0.38], [0.5, -0.34]].map(([a, b2]) => [x + a * s, y + b2 * s]);
+    const l1 = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]), l2 = Math.hypot(pts[2][0] - pts[1][0], pts[2][1] - pts[1][1]), d = p * (l1 + l2);
+    c.beginPath(); c.moveTo(...pts[0]);
+    const q = Math.min(1, d / l1); c.lineTo(lerp(pts[0][0], pts[1][0], q), lerp(pts[0][1], pts[1][1], q));
+    if (d > l1) { const q2 = (d - l1) / l2; c.lineTo(lerp(pts[1][0], pts[2][0], q2), lerp(pts[1][1], pts[2][1], q2)); }
+    c.stroke();
+  }
+  const spinArc = (c, x, y, r, t, col, lw) => { const a = t * 7.85; c.strokeStyle = col; c.lineWidth = lw; c.lineCap = 'round'; c.beginPath(); c.arc(x, y, r, a, a + Math.PI * 1.5); c.stroke(); };
+  const mix = (a, b2, p) => { const A = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16)), B = [1, 3, 5].map((i) => parseInt(b2.slice(i, i + 2), 16)); return `rgb(${A.map((v, i) => Math.round(lerp(v, B[i], p))).join(',')})`; };
+
+  // ---------- the glow: a rotating conic ring around the composer, then the phone, blurred ----------
+  function glow(rect, t, alpha) {
+    if (alpha <= 0.01) return;
+    GL.reset();
+    const k = 0.25, cx = (rect.x + rect.w / 2) * k, cy = (rect.y + rect.h / 2) * k;
+    const cg = GL.createConicGradient(t * 1.3, cx, cy);
+    [['#E9826A', 0], ['#C2482B', 0.18], ['#F2B36B', 0.36], ['#7FB7A0', 0.54], ['#6E8FD9', 0.7], ['#B98BD8', 0.85], ['#E9826A', 1]].forEach(([col, s]) => cg.addColorStop(s, col));
+    GL.filter = `blur(${9 + 10 * clamp((t - T.send - 0.13) / 0.6)}px)`;
+    GL.strokeStyle = cg; GL.lineWidth = 10 + 12 * clamp((t - T.send - 0.13) / 0.6);
+    roundRect(GL, rect.x * k, rect.y * k + 3, rect.w * k, rect.h * k, rect.r * k); GL.stroke();
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = alpha; g.drawImage(glowC, 0, 0, W, H); g.restore();
+  }
+
+  // ---------- the phone: its photograph around the screen, and its status bar ----------
+  function phone(c, front) {
+    const [sx, sy, sw] = PHONE_SCREEN, k = SW / sw, img = SCR.phone, x = SCREEN.x - sx * k, y = SCREEN.y - sy * k;
+    c.save(); if (!front) { c.shadowColor = 'rgba(60,40,20,0.22)'; c.shadowBlur = 40; c.shadowOffsetY = 18; }
+    c.drawImage(img, x, y, img.width * k, img.height * k); c.restore();
+  }
+  function statusBar(c, dark) {
+    const y = -BAR, col = dark ? '#fff' : INK;
+    c.fillStyle = dark ? INK : PAPER; c.fillRect(0, y, SW, BAR);
+    text(c, '8:12', 34, y + 24, FIG(600)(15), col);
+    for (let i = 0; i < 4; i++) { const bh = 4 + i * 2.4; roundRect(c, 300 + i * 5.5, y + 29 - bh, 3.4, bh, 1); c.fillStyle = col; c.fill(); }
+    roundRect(c, 330, y + 18, 25, 12, 3.5); c.strokeStyle = dark ? 'rgba(255,255,255,0.5)' : 'rgba(23,25,31,0.4)'; c.lineWidth = 1.2; c.stroke();
+    roundRect(c, 332, y + 20, 18, 8, 2); c.fillStyle = col; c.fill();
+  }
+
+  // ---------- the screen, by scene ----------
+  // ask: the new-trip page, the composer as typed (one capture per keystroke)
+  const typedAt = (t) => { const n = SCR.typed.length, k = SCR.keys; let i = 0; while (i < n && k[i] <= t) i++; return i; };
+  function askScreen(c, t) {
+    const n = typedAt(t), C = R('home', 'composer');
+    c.save(); roundRect(c, C[0], C[1], C[2], C[3], 28); c.clip(); // the composer, over its glow
+    shot(c, n ? `ask-${String(n).padStart(2, '0')}` : 'home', C); c.restore();
+    // the send button, pressed as the message goes
+    const pr = press(t, T.send);
+    if (pr > 0) {
+      const s = R('home', 'send'), cx = s[0] + s[2] / 2, cy = s[1] + s[3] / 2;
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, s[2] / 2 + 0.5, 0, Math.PI * 2); c.fill();
+      c.save(); sink(c, cx, cy, 1 - 0.1 * pr); shot(c, `ask-${String(SCR.typed.length).padStart(2, '0')}`, s); c.restore();
+    }
+  }
+  // think: Maya's message, and the search ticking one check a beat (think-0 … think-4)
+  function thinkScreen(c, t) {
+    let k = 0; T.toss.forEach((tb) => { if (t >= tb) k++; });
+    const name = `think-${k}`;
+    page(c, name);
+    // the search card grows a row at each toss: its bottom edge slides down from the last row's
+    if (k > 0) {
+      const now = R(name, 'search'), was = R(`think-${k - 1}`, 'search'), p = spring(t - T.toss[k - 1], 300, 26);
+      const bottom = lerp(was[1] + was[3], now[1] + now[3], p), cap = 16;
+      if (p < 0.999) {
+        c.fillStyle = PAPER; c.fillRect(now[0] - 4, bottom - cap, now[2] + 8, now[1] + now[3] - bottom + cap + 6);
+        c.save(); c.beginPath(); c.rect(now[0] - 4, now[1], now[2] + 8, bottom - cap - now[1]); c.clip(); page(c, name); c.restore();
+        shot(c, name, [now[0] - 2, now[1] + now[3] - cap, now[2] + 4, cap + 2], now[0] - 2, bottom - cap);
+      }
+    }
+    // the row just checked: its spinner gives way to the tick, which scales in (0.16 s), never swapped in one frame
+    if (k > 0) {
+      const was = R(`think-${k - 1}`, 'spin'), q = easeOutExpo(clamp((t - T.toss[k - 1]) / 0.16));
+      if (was && q < 1) {
+        const cx = was[0] + was[2] / 2, cy = was[1] + was[3] / 2;
+        c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, 11, 0, Math.PI * 2); c.fill();
+        c.save(); c.globalAlpha = q; c.translate(cx, cy); c.scale(0.5 + 0.5 * q, 0.5 + 0.5 * q); c.translate(-cx, -cy); shot(c, name, [was[0] - 1, was[1] - 1, was[2] + 2, was[3] + 2]); c.restore();
+      }
+    }
+    // the search's label: "Looking at 312 lake cabins" rolls up and out, "Checked 312 lake cabins · 6 fit" rolls in
+    if (k === 4) {
+      const card = R(name, 'search'), L = [card[0] + 14, card[1] + 12, card[2] - 28, 26], u = clamp((t - T.toss[3]) / 0.3);
+      if (u < 1) {
+        const out = easeInOutCubic(clamp(u / 0.4)), inn = easeOutExpo(clamp((u - 0.4) / 0.6)); // one line at a time
+        c.fillStyle = '#fff'; c.fillRect(L[0], L[1], L[2], L[3]);
+        c.save(); c.beginPath(); c.rect(L[0], L[1], L[2], L[3]); c.clip();
+        if (out < 1) { c.globalAlpha = 1 - out; shot(c, 'think-3', L, L[0], L[1] - out * 14); }
+        if (inn > 0) { c.globalAlpha = inn; shot(c, name, L, L[0], L[1] + (1 - inn) * 14); }
+        c.restore();
+      }
+    }
+    // the working check spins at its row's place; while the card grows to take that row, the card's sliding
+    // bottom edge reveals it, as it does the row's label (unclipped, it hung below the card for a few frames)
+    const sp = k < 4 ? R(name, 'spin') : null;
+    if (sp) {
+      const now = R(name, 'search');
+      let bottom = now[1] + now[3];
+      if (k > 0) { const was = R(`think-${k - 1}`, 'search'); bottom = lerp(was[1] + was[3], bottom, spring(t - T.toss[k - 1], 300, 26)); }
+      const cx = sp[0] + sp[2] / 2, cy = sp[1] + sp[3] / 2;
+      c.save(); c.beginPath(); c.rect(now[0], now[1], now[2], bottom - now[1] - 2); c.clip();
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, 10.5, 0, Math.PI * 2); c.fill(); spinArc(c, cx, cy, 7, t, OK, 2); c.restore();
+    }
+  }
+  // chat: the answer page, its reply rising, its two actions popping in, then the booking
+  function chatScreen(c, t) {
+    page(c, 'results');
+    const slot = R('results', 'stays')[0], reply = R('results', 'reply'), acts = R('results', 'acts');
+    // the best fit's slot stays empty until the card lands in it
+    if (t < T.chatEnd) { c.fillStyle = PAPER; c.fillRect(slot[0] - 3, slot[1] - 3, slot[2] + 6, slot[3] + 6); }
+    // the reply and the question rise in, line by line
+    c.fillStyle = PAPER; c.fillRect(0, reply[0][1] - 4, SW, acts[1] + acts[3] + 6 - reply[0][1] + 4);
+    const lines = [[reply[0][1], 24.8, T.reply], [reply[0][1] + 24.8, 24.8, T.reply + 0.05], [reply[1][1], reply[1][3], T.ask]];
+    for (const [y, h, t0] of lines) {
+      const p = clamp((t - t0) / 0.3); if (p <= 0) continue;
+      c.save(); c.beginPath(); c.rect(0, y, SW, h); c.clip(); shot(c, 'results', [0, y, SW, h], 0, y + (1 - easeOutExpo(p)) * h * 1.1); c.restore();
+    }
+    // "Book it" and "Show all 6" pop in on a spring; "Book it" becomes "Booking", then "Booked"
+    bookPill(c, t);
+    const s2 = spring(t - T.pills[1], 320, 17);
+    if (s2 > 0.01) {
+      const a0 = R('results', 'all'), a1 = R('booking', 'all'), q = easeInOutCubic(clamp((t - T.click - 0.06) / 0.25));
+      const x = lerp(a0[0], a1[0], q), cx = x + a0[2] / 2, cy = a0[1] + a0[3] / 2;
+      c.save(); sink(c, cx, cy, s2); shot(c, 'results', a0, x, a0[1]);
+      if (q > 0) { c.globalAlpha = q; shot(c, 'booking', a1, x, a1[1]); } // it greys as the booking starts
+      c.restore();
+    }
+  }
+  // the primary pill's widths: Book it, Booking, Booked (from the captures)
+  const pillW = (t) => { const w0 = R('results', 'book')[2], w1 = R('booking', 'book')[2], w2 = R('booked', 'book')[2]; return lerp(lerp(w0, w1, easeInOutCubic(clamp((t - T.click - 0.06) / 0.25))), w2, easeInOutCubic(clamp((t - T.done) / 0.25))); };
+  function bookPill(c, t, solo) {
+    const s1 = solo ? 1 : spring(t - T.pills[0], 320, 17); if (s1 <= 0.01) return;
+    const B = R('results', 'book'), x = B[0], y = B[1], h = B[3], w = pillW(t), cx = x + w / 2, cy = y + h / 2;
+    c.save(); sink(c, cx, cy, s1 * (1 - 0.05 * press(t, T.click)));
+    roundRect(c, x, y, w, h, h / 2); c.fillStyle = INK; c.fill();
+    c.save(); roundRect(c, x, y, w, h, h / 2); c.clip();
+    // "Book it" leaves upward at the click; "Booking" and its spinner rise in
+    const out = easeInOutCubic(clamp((t - T.click - 0.06) / 0.12)), inn = easeOutExpo(clamp((t - T.spinner[0]) / 0.25)), gone = easeInOutCubic(clamp((t - T.done) / 0.12));
+    if (out < 1) { const L = R('results', 'book'); shot(c, 'results', [L[0] + 12, L[1] + 3, L[2] - 24, h - 6], x + 12, y + 3 - out * h); }
+    if (t >= T.spinner[0] && gone < 1) {
+      const L = R('booking', 'book'), dy = (1 - inn) * h - gone * h;
+      shot(c, 'booking', [L[0] + 38, L[1] + 3, L[2] - 50, h - 6], x + 38, y + 3 + dy);
+      spinArc(c, x + 27, cy + dy, 6.5, t, '#fff', 2);
+    }
+    // "Booked": the app's green fills from the check outward, and its label rises in
+    if (t >= T.done) {
+      const L = R('booked', 'book'), r = easeOutExpo(clamp((t - T.done) / 0.32)) * (w + 10);
+      c.save(); c.beginPath(); c.arc(x + 25, cy, r, 0, Math.PI * 2); c.clip(); c.fillStyle = OK; c.fillRect(x, y, w, h); c.restore();
+      const lp = easeOutExpo(clamp((t - T.done - 0.06) / 0.3));
+      c.save(); c.beginPath(); c.arc(x + 25, cy, r, 0, Math.PI * 2); c.clip(); shot(c, 'booked', [L[0] + 12, L[1] + 3, L[2] - 24, h - 6], x + 12, y + 3 + (1 - lp) * h * 0.6); c.restore();
+    }
+    c.restore(); c.restore();
+  }
+
+  // ---------- the stays, as cards: they burst from the centre, slide three places, the best lifts ----------
+  const CARD_W = 232, CARD_H = 264.58, STEP = 640, CW = 470; // frame px: the column's step and a card's width
+  function stripCards(t) {
+    const out = [], burst = spring(t - T.burst, 380, 26);
+    const s = -3 + 3 * easeInOutCubic(clamp((t - T.slide[0]) / (T.slide[1] - T.slide[0])));
+    const lift = spring(t - T.lift, 260, 18), away = (clamp((t - T.chat + 0.1) / 0.34)) ** 3;
+    for (let k = -6; k <= 4; k++) {
+      const p = k - s; if (Math.abs(p) > 3.2) continue;
+      const i = ((k % 6) + 6) % 6, d = Math.abs(p), sb = spring(t - T.burst - 0.03 * d, 210, 21);
+      let sc = (1 - 0.025 * p * p) * lerp(0.18, 1, sb), x = W / 2, y = H / 2 + p * STEP * burst;
+      if (k === 0) { sc *= 1 + 0.1 * lift; y -= 24 * lift; }
+      if (k !== 0) y += Math.sign(p || 1) * H * away;
+      out.push({ k, p, i, x, y, w: CW * sc });
+    }
+    return out.sort((a2, b2) => Math.abs(b2.p) - Math.abs(a2.p));
+  }
+  function drawStay(c, i, x, y, w) { // x, y: its top-left; w: its width
+    const h = w * CARD_H / CARD_W, r = 16 * w / CARD_W;
+    c.save(); c.shadowColor = 'rgba(60,20,10,0.32)'; c.shadowBlur = 40 * w / 470; c.shadowOffsetY = 16 * w / 470;
+    roundRect(c, x, y, w, h, r); c.fillStyle = '#fff'; c.fill(); c.restore();
+    c.save(); roundRect(c, x, y, w, h, r); c.clip(); c.drawImage(SCR.img[`stay-${i}`], x, y, w, h); c.restore();
+  }
+
+  // ---------- the cursor (world; it rides the camera) ----------
+  const CUR = [[-0.85, -70, 905], [-0.62, 30, 770]]; // seconds before the click: it enters, passes, and hovers on the button 0.45 s before it clicks
+  function cursorAt(t) {
+    if (t < T.click + CUR[0][0]) return null;
+    const B = R('results', 'book'), pts = [...CUR, [-0.45, B[0] + 40, B[1] + 28]].map(([d, x, y]) => [T.click + d, x, y]);
+    for (let i = 1; i < pts.length; i++) if (t <= pts[i][0]) { const [ta, xa, ya] = pts[i - 1], [tb, xb, yb] = pts[i], p = (t - ta) / (tb - ta), e = 1 - (1 - p) ** 3; return [lerp(xa, xb, e), lerp(ya, yb, e)]; }
+    return [pts[pts.length - 1][1], pts[pts.length - 1][2]];
+  }
+  function drawCursor(x, y, s) {
+    g.save(); g.translate(x, y); g.scale(s * 1.3, s * 1.3);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 46); g.lineTo(11, 35); g.lineTo(19, 53); g.lineTo(27, 49.5); g.lineTo(19, 32); g.lineTo(34, 32); g.closePath();
+    g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 12; g.shadowOffsetY = 5;
+    g.lineJoin = 'round'; g.lineWidth = 5; g.strokeStyle = '#fff'; g.stroke(); g.shadowColor = 'transparent';
+    g.fillStyle = '#000'; g.fill(); g.restore();
+  }
+
+  // ---------- the outro (frame px) ----------
+  function drawMark(c, cx, cy, h, rot, colour) {
+    const k = h / 84; // the mark's arches span 84 of its 100 units
+    c.save(); c.translate(cx, cy); c.rotate(rot); c.scale(k, k); c.translate(-50, -71); c.fillStyle = colour;
+    c.fill(MARK[0], 'evenodd'); c.fill(MARK[1], 'evenodd'); c.fill(MARK[2]); c.restore();
+  }
+  function outroLine(s, t, tin, tout, step) {
+    const lay = fitText(g, { text: s, fontFor: (sz) => NEWS(500)(sz), maxWidth: 900, maxLines: 2, maxSize: 104, minSize: 62, balance: true, lineHeight: 1.08 });
+    const n = lay.lines.length; let i = 0;
+    lay.lines.forEach((ln, r) => {
+      const x0 = W / 2 - ln.width / 2, base = 960 + 30 + (r - (n - 1) / 2) * lay.lineHeight;
+      ln.words.forEach((wd) => {
+        const p = riseP(t, tin + i++ * step, tout);
+        rise(g, () => text(g, wd.text, x0 + wd.x, base, NEWS(500)(lay.size), PAPER, 'left', 'alphabetic'), x0 + wd.x, base, lay.size, wd.width, p);
+      });
+    });
+    return lay;
+  }
+  // the end card, stacked: the kicker, the mark, clear space, the wordmark, the tagline. The mark's
+  // anchor (drawMark's cx, cy) sits 0.25 of its height above its foot
+  function lockup() {
+    const mh = 230, foot = 930;
+    return { mh, mx: W / 2, my: foot - mh * 0.25, base: foot + 205, kicker: foot - mh - 80, tagline: foot + 330 };
+  }
+  function doneLabel(c, cx, cy, size, col) { // ✓ Booked, as the pill shows it
+    const tw = measure(c, FIG(600)(size), DONE), total = tw + size * 1.45, x0 = cx - total / 2;
+    drawCheck(c, x0 + size * 0.45, cy, size * 0.8, 1, col, size * 0.12);
+    text(c, DONE, x0 + size * 1.45, cy, FIG(600)(size), col);
+  }
+  function drawOutro(t) {
+    g.fillStyle = INK; g.fillRect(0, 0, W, H);
+    if (t < T.labelOut + 0.3) { // the done label, at headline size, rises out
+      const q = easeInOutCubic(clamp((t - T.labelOut) / 0.22));
+      g.save(); g.beginPath(); g.rect(0, 960 - 90, W, 180); g.clip(); doneLabel(g, W / 2, 960 - q * 160, 78, '#fff'); g.restore();
+    }
+    outroLine(V.line1, t, T.line1, T.line1Out, 0.11);
+    const L2 = outroLine(V.line2, t, T.line2, T.textOut, 0.1);
+    // a dot rides a line to the end, where it becomes the mark
+    const route = Math.max(420, Math.min(L2.width, 860)), x0 = W / 2 - route * 0.42, x1 = W / 2 + route * 0.42, y = 1150 + (L2.lines.length - 1) / 2 * L2.lineHeight;
+    const rp = easeInOutCubic(clamp((t - T.route[0]) / (T.route[1] - T.route[0]))), fade = 1 - clamp((t - (T.markIn + 0.1)) / 0.25);
+    if (t > T.route[0] && fade > 0) {
+      const hx = lerp(x0, x1, rp);
+      g.save(); g.globalAlpha = fade;
+      g.fillStyle = '#3b3f48'; for (let x = hx + 14; x < x1; x += 13) { g.beginPath(); g.arc(x, y, 2, 0, Math.PI * 2); g.fill(); }
+      g.strokeStyle = EMBER; g.lineWidth = 4; g.beginPath(); g.moveTo(x0, y); g.lineTo(hx, y); g.stroke(); g.restore();
+      if (t < T.markIn) { g.beginPath(); g.arc(hx, y, 10, 0, Math.PI * 2); g.fillStyle = EMBER; g.fill(); }
+    }
+    if (t >= T.markIn) {
+      // one move: the dot grows into the mark as it glides, upright, into the lockup (size eased in log space). It
+      // waits at the end as the dot and becomes the mark only once it's moving (q 0.12-0.24), so the swap is hidden
+      // in the rise; the dot eases onto the mark's centre (a quarter of its height above its anchor) as it grows
+      const L = lockup(), q = clamp((t - T.markMove[0]) / (T.markMove[1] - T.markMove[0])), mv = q < 0.35 ? 0.5 * (q / 0.35) ** 2 : 1 - 0.5 * ((1 - q) / 0.65) ** 2.4;
+      const h = Math.exp(lerp(Math.log(20), Math.log(L.mh), mv)), x = lerp(x1, L.mx, mv), yy = lerp(y, L.my, mv), rot = 0;
+      const swap = clamp((q - 0.12) / 0.12);
+      if (swap < 1) { g.save(); g.globalAlpha = 1 - swap; g.beginPath(); g.arc(x, yy - h * 0.25 + 5 * clamp(1 - q / 0.12), h / 2, 0, Math.PI * 2); g.fillStyle = EMBER; g.fill(); g.restore(); }
+      if (swap > 0) { g.save(); g.globalAlpha = swap; drawMark(g, x, yy, h, rot, EMBER); g.restore(); }
+      // the wordmark rises out of its line under the mark, then the tagline; the kicker above
+      rise(g, () => text(g, WORDMARK, W / 2, L.base, NEWS(600)(170), PAPER, 'center', 'alphabetic'), 0, L.base, 170, W, clamp((t - T.word) / 0.4));
+      rise(g, () => text(g, V.tagline, W / 2, L.tagline, FIG(400)(56), PAPER, 'center', 'alphabetic'), 0, L.tagline, 56, W, clamp((t - T.tagline) / 0.35));
+      rise(g, () => text(g, KICKER, W / 2, L.kicker, FIG(500)(32), MUTED, 'center', 'alphabetic'), 0, L.kicker, 32, W, clamp((t - T.kicker) / 0.35));
+    }
+  }
+
+  // ---------- the frame ----------
+  function seek(t, values) {
+    V = { ...DEFAULTS, ...values };
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    g.reset();
+    t = clamp(t, 0, DURATION - 1e-6);
+    const c = cam(t);
+    g.fillStyle = BG; g.fillRect(0, 0, W, H);
+    const bg = g.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, H * 0.7); bg.addColorStop(0, 'rgba(255,255,255,0.45)'); bg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+
+    if (t < T.dropEnd + 0.05) {
+      // ----- ask, send, think: the phone, its screen, the glow -----
+      const C = R('home', 'composer'), glowAt = (x, y, w, h, r) => { const [gx, gy] = toScreen(c, x, y); glow({ x: gx, y: gy, w: w * c.z, h: h * c.z, r: r * c.z }, t, 0.9); };
+      // the glow: around the composer, on the page, while she types; around the phone once her message has landed
+      if (t >= SEND.swap) glowAt(SCREEN.x - 22, SCREEN.y - 22, SCREEN.w + 44, SCREEN.h + 44, 66);
+      useCam(c);
+      phone(g, false);
+      g.save(); roundRect(g, SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h, SCREEN.r); g.clip();
+      g.fillStyle = PAPER; g.fillRect(SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h);
+      if (t < SEND.swap) { page(g, 'home'); glowAt(C[0], C[1], C[2], C[3], 28); useCam(c); askScreen(g, t); } else thinkScreen(g, t);
+      statusBar(g, false);
+      // the send: ember floods the screen from the send button, then lands as Maya's message
+      if (t >= SEND.flood[0] && t < SEND.words + 0.4) {
+        const s = R('home', 'send'), sx = s[0] + s[2] / 2, sy = s[1] + s[3] / 2, B = R('think-0', 'bubble');
+        if (t < SEND.land[0]) {
+          const p = clamp((t - SEND.flood[0]) / (SEND.flood[1] - SEND.flood[0])), far = Math.hypot(SW, SH + 60);
+          g.beginPath(); g.arc(sx, sy, lerp(20, far, p ** 1.3), 0, Math.PI * 2); g.fillStyle = EMBER; g.fill();
+        } else {
+          const p = easeInOutCubic(clamp((t - SEND.land[0]) / (SEND.land[1] - SEND.land[0])));
+          const x = lerp(SCREEN.x, B[0], p), y = lerp(SCREEN.y, B[1], p), w = lerp(SCREEN.w, B[2], p), h = lerp(SCREEN.h, B[3], p);
+          if (p < 1) { roundRect(g, x, y, w, h, lerp(0, 22, p)); g.fillStyle = EMBER; g.fill(); }
+          // the words rise into the message once it has landed
+          if (t >= SEND.land[1] - 0.02) {
+            const q = easeOutExpo(clamp((t - SEND.words) / 0.3));
+            g.save(); roundRect(g, B[0], B[1], B[2], B[3], 22); g.clip(); g.fillStyle = EMBER; g.fillRect(B[0], B[1], B[2], B[3]);
+            shot(g, 'think-0', [B[0] + 12, B[1] + 6, B[2] - 24, B[3] - 12], B[0] + 12, B[1] + 6 + (1 - q) * B[3] * 0.8); g.restore();
+          }
+        }
+      }
+      g.restore();
+      phone(g, true);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      // the drop: the ember floods out of the last count, edge to edge
+      if (t >= T.drop) {
+        const k = R('think-4', 'count'), [fx, fy] = toScreen(c, k[0] + k[2] / 2, k[1] + k[3] / 2), p = clamp((t - T.drop) / (T.dropEnd - T.drop));
+        const end = 1.23 * Math.max(...[[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => Math.hypot(x - fx, y - fy)));
+        g.beginPath(); g.arc(fx, fy, lerp(14 * c.z, end, p ** 1.25), 0, Math.PI * 2); g.fillStyle = EMBER; g.fill();
+      }
+    }
+
+    if (t >= T.chat && t < T.fill[1]) {
+      // ----- the chat (world), under the shrinking flood, until the page covers it -----
+      useCam(c);
+      phone(g, false);
+      g.save(); roundRect(g, SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h, SCREEN.r); g.clip();
+      g.fillStyle = PAPER; g.fillRect(SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h);
+      chatScreen(g, t); statusBar(g, false); g.restore();
+      phone(g, true);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    if (t >= T.dropEnd && t < T.chatEnd) {
+      // ----- the results: the stays burst out of the flood; the flood lands as the best fit's tag -----
+      const cards = stripCards(t), cc = cam(T.chatEnd), slot = R('results', 'stays')[0], [tx, ty] = toScreen(cc, slot[0], slot[1]);
+      const best = cards.find((cd) => cd.k === 0), q = easeInOutCubic(clamp((t - T.chat) / (T.chatEnd - T.chat)));
+      let bx = 0, by = 0, bw = 0;
+      if (best) { bx = lerp(best.x - best.w / 2, tx, q); by = lerp(best.y - best.w * CARD_H / CARD_W / 2, ty, q); bw = lerp(best.w, CARD_W * cc.z, q); }
+      // the flood: whole until the chat, then it gathers in behind the best fit as it flies home, ending under it
+      const bh = bw * CARD_H / CARD_W, inset = 6 * bw / CARD_W, cr = 16 * bw / CARD_W;
+      const F = { x: lerp(0, bx + inset, q), y: lerp(0, by + inset, q), w: lerp(W, bw - 2 * inset, q), h: lerp(H, bh - 2 * inset, q) };
+      if (q < 1) { roundRect(g, F.x, F.y, F.w, F.h, lerp(0, cr, q)); g.fillStyle = EMBER; g.fill(); }
+      for (const cd of cards) if (cd.k !== 0) drawStay(g, cd.i, cd.x - cd.w / 2, cd.y - cd.w * CARD_H / CARD_W / 2, cd.w);
+      if (best) drawStay(g, best.i, bx, by, bw);
+    }
+    if (t >= T.fill[0]) {
+      // ----- "Booked" grows into the page, turning from the app's green to ink -----
+      const cc = cam(T.fill[0]), B = R('results', 'book'), w0 = pillW(T.fill[0]), [px, py] = toScreen(cc, B[0], B[1]);
+      const p = easeInOutCubic(clamp((t - T.fill[0]) / (T.fill[1] - T.fill[0])));
+      const pw0 = w0 * cc.z, h0 = B[3] * cc.z, cx = lerp(px + pw0 / 2, W / 2, p), cy = lerp(py + h0 / 2, 960, p);
+      const e = 1 - (1 - p) ** 1.3, w = pw0 * ((W + 1200) / pw0) ** e, h = h0 * ((H + 1200) / h0) ** e;
+      if (t < T.fill[1]) {
+        roundRect(g, cx - w / 2, cy - h / 2, w, h, Math.min(h / 2, w / 2)); g.fillStyle = mix(OK, INK, clamp(p * 1.4)); g.fill();
+        const size = 15 * cc.z * ((78 / (15 * cc.z)) ** e);
+        doneLabel(g, cx, cy, size, '#fff');
+      } else drawOutro(t);
+    }
+    // the cursor, above the chat, under the growing pill
+    const cur = cursorAt(t);
+    if (cur && t < T.fill[0] + 0.02) { const [x, y] = toScreen(c, cur[0], cur[1]); drawCursor(x, y, 1 - 0.14 * press(t, T.click)); }
+    return canvas;
+  }
+
+  async function prepare() {
+    const shots = window.SCREENS;
+    if (!SCR.caps.home) {
+      Object.assign(SCR.caps, shots.captures); Object.assign(SCR.rects, shots.rects);
+      SCR.typed = shots.typed.ask;
+      // the keystrokes: the request types in 0.1–2.5 s, a little uneven, with a breath after commas
+      const r = rng(7), wts = [...SCR.typed].map((ch) => 1 + 0.7 * r() + (ch === ' ' ? 0.4 : 0) + (/[,.?]/.test(ch) ? 1.2 : 0)), sum = wts.reduce((a, x) => a + x, 0);
+      let acc = 0; SCR.keys = wts.map((w) => { acc += w; return 0.1 + 2.4 * acc / sum; });
+    }
+    await Promise.all([
+      loadFont('Figtree', 'assets/fonts/figtree-variable.ttf', { weight: '300 900' }),
+      loadFont('Newsreader', 'assets/fonts/newsreader-variable.ttf', { weight: '200 800' }),
+      (async () => { if (!SCR.phone) SCR.phone = await loadImage('assets/art/phone.png'); })(),
+      ...Object.entries(SCR.caps).map(async ([n, C]) => { if (!SCR.img[n]) SCR.img[n] = await loadImage(`assets/screens/${C.file}`); }),
+    ]);
+    await document.fonts.ready;
+  }
+  // sound: a tick per key, a tap on the send, a pop per check, swishes on the floods and the big moves
+  function cues() {
+    const out = (SCR.keys || []).map((t) => ({ t, type: 'tick', gain: 0.4 }));
+    const pop = (t, gain = 0.42) => out.push({ t, type: 'pop', gain });
+    const swish = (t, kind, travel, gain = 0.32) => out.push({ t, type: 'swish', gain, motion: { kind, travel } });
+    out.push({ t: T.send, type: 'tap', gain: 0.6 }, { t: T.click, type: 'tap', gain: 0.65 });
+    swish(SEND.flood[0], 'container', 0.5); swish(SEND.land[0], 'container', 0.4, 0.28); pop(SEND.words, 0.38);
+    for (const tb of T.toss) pop(tb, 0.4);
+    swish(T.drop, 'container', 0.9, 0.36); swish(T.burst + 0.05, 'container', 0.6); swish(T.slide[0], 'camera', 0.5, 0.26); pop(T.lift, 0.42);
+    swish(T.chat, 'container', 0.6); pop(T.reply, 0.36); pop(T.ask, 0.34); pop(T.pills[0], 0.38); pop(T.pills[1], 0.34);
+    pop(T.done, 0.45); swish(T.fill[0], 'container', 0.8);
+    pop(T.line1, 0.38); pop(T.line2, 0.38); pop(T.markIn, 0.42); swish(T.markMove[0], 'container', 0.5, 0.28); pop(T.word, 0.4); pop(T.tagline, 0.32);
+    return out.sort((a, b2) => a.t - b2.t);
+  }
+  // the bed: 130 BPM; the drop lands on beat 18 (bar 4.5: the request's two beats come before it); no riser
+  const music = {
+    bpm: 130, duration: DURATION, root: 45,
+    chords: [[0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, -1, 2]],
+    sections: [
+      { from: 0, to: 4.5, pad: 0.7, hats: 0.3 },
+      { from: 4.5, to: 14, kick: 0.85, hats: 0.6, clap: 0.45, bass: 0.75, pad: 0.5 },
+    ],
+  };
+  const STATES = [[0, 'Ask'], [T.send, 'Send'], [T.send + 0.45, 'Search'], [T.drop, 'Drop'], [T.slide[0], 'Stays'], [T.lift, 'Best fit'], [T.chat, 'Chat'], [T.click, 'Book it'], [T.done, 'Booked'], [T.fill[0], 'Fill'], [T.line1, 'Line 1'], [T.line2 - 0.1, 'Line 2'], [T.textOut, 'Mark']];
+  window.template = { fps: FPS, duration: DURATION, sizes: { '9:16': [1080, 1920] }, width: W, height: H, defaults: () => ({ size: '9:16', ...DEFAULTS }), fields: FIELDS, states: STATES, prepare, seek: (t, values) => seek(t, values), cues, music,
+    keyTimes: [1.6, 3.2, b(8) + 0.3, b(10) + 0.3, b(13) + 0.5, b(16) + 0.3, b(17) + 0.3, b(19) + 0.4, b(21) + 0.4, b(22) + 0.4, b(25) + 0.3, b(27) - 0.4, b(27) + 0.6, b(29), b(32) + 0.5, b(34) + 0.6, b(36) + 0.9, DURATION - 1.2] };
+  const q = new URLSearchParams(location.search);
+  if (window.parent === window && !q.has('render')) prepare().then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION, {}); requestAnimationFrame(loop); }; loop(); });
+})();
+</script>
