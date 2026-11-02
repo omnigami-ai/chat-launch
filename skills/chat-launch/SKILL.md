@@ -5,6 +5,8 @@ description: Make a 23-second chat-style launch video for a product in code, one
 
 # Chat launch
 
+For Japanese, Korean or Chinese product pages, keep the copy in that language and set the film’s `lang` to the page’s `<html lang>`; bundled Noto faces and phrase breaks handle the text.
+
 You make a 23-second chat-style launch film for the user's product:
 someone asks the product for something, it
 works on it, the answer floods in as cards, the best one becomes the reply,

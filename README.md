@@ -2,7 +2,7 @@
 
 Someone asks your product for something, and it delivers.
 
-A 23-second launch film for products you ask for something, on your real screens. A request types into your own composer, your product works on it one step a beat, a colour floods the screen on the drop, its results burst in as cards, the best one flies back into the chat, and one click later it’s done, ending on your mark. One continuous take.
+A launch film for products you ask for something, in one continuous take. A request types into your own composer, your product works on it, results burst in as cards, and the best one flies back into the chat and is done in one click.
 
 Watch it play live, and change its words, at [omnigami.ai/skills/chat-launch](https://omnigami.ai/skills/chat-launch).
 

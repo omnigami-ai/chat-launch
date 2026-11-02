@@ -33,8 +33,8 @@
   const W = 1080, H = 1920;
   const b = (n) => sh(n) * BEAT; // a base beat, at its new time
   const canvas = document.getElementById('c');
-  const g = canvas.getContext('2d', { willReadFrequently: true });
-  const helper = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d', { willReadFrequently: true })]; };
+  const g = kit.textContext(canvas.getContext('2d', { willReadFrequently: true }));
+  const helper = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, kit.textContext(c.getContext('2d', { willReadFrequently: true }))]; };
   const [glowC, GL] = helper(W / 4, H / 4); // the composer's glow, drawn at quarter size and blurred
 
   // ---------- Ostlery: colour, type, mark (cast/ostlery/brand.md) ----------
@@ -115,7 +115,7 @@
   const useCam = (c) => g.setTransform(c.z, 0, 0, c.z, W / 2 - c.x * c.z, H / 2 - c.y * c.z);
 
   // ---------- helpers ----------
-  function text(c, s, x, y, font, colour, align = 'left', base = 'middle') {
+  function text(c, s, x, y, font, colour, align = 'left', base = 'middle') { s = kit.copyText(s);
     c.font = font; c.fillStyle = colour; c.textAlign = align;
     if (base === 'middle') window.kit.centreText(c, s, x, y); else { c.textBaseline = base; c.fillText(s, x, y); } // 'middle': centred on the capitals
   }
@@ -130,7 +130,7 @@
   // a press: 0 → 1 over the 0.07 s before a click lands at tc, back over the 0.22 s after
   const press = (t, tc) => (t < tc - 0.07 ? 0 : t < tc ? easeOutExpo((t - tc + 0.07) / 0.07) : 1 - easeInOutCubic(clamp((t - tc) / 0.22)));
   const sink = (c, x, y, k) => { c.translate(x, y); c.scale(k, k); c.translate(-x, -y); };
-  function drawCheck(c, x, y, s, p, col, lw) {
+  function drawCheck(c, x, y, s, p, col, lw) { s = kit.copyText(s);
     c.strokeStyle = col; c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round';
     const pts = [[-0.5, 0.02], [-0.14, 0.38], [0.5, -0.34]].map(([a, b2]) => [x + a * s, y + b2 * s]);
     const l1 = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]), l2 = Math.hypot(pts[2][0] - pts[1][0], pts[2][1] - pts[1][1]), d = p * (l1 + l2);
@@ -314,7 +314,7 @@
     for (let i = 1; i < pts.length; i++) if (t <= pts[i][0]) { const [ta, xa, ya] = pts[i - 1], [tb, xb, yb] = pts[i], p = (t - ta) / (tb - ta), e = 1 - (1 - p) ** 3; return [lerp(xa, xb, e), lerp(ya, yb, e)]; }
     return [pts[pts.length - 1][1], pts[pts.length - 1][2]];
   }
-  function drawCursor(x, y, s) {
+  function drawCursor(x, y, s) { s = kit.copyText(s);
     g.save(); g.translate(x, y); g.scale(s * 1.3, s * 1.3);
     g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 46); g.lineTo(11, 35); g.lineTo(19, 53); g.lineTo(27, 49.5); g.lineTo(19, 32); g.lineTo(34, 32); g.closePath();
     g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 12; g.shadowOffsetY = 5;
@@ -328,7 +328,7 @@
     c.save(); c.translate(cx, cy); c.rotate(rot); c.scale(k, k); c.translate(-50, -71); c.fillStyle = colour;
     c.fill(MARK[0], 'evenodd'); c.fill(MARK[1], 'evenodd'); c.fill(MARK[2]); c.restore();
   }
-  function outroLine(s, t, tin, tout, step) {
+  function outroLine(s, t, tin, tout, step) { s = kit.copyText(s);
     const lay = fitText(g, { text: s, fontFor: (sz) => NEWS(500)(sz), maxWidth: 900, maxLines: 2, maxSize: 104, minSize: 62, balance: true, lineHeight: 1.08 });
     const n = lay.lines.length; let i = 0;
     lay.lines.forEach((ln, r) => {
@@ -517,9 +517,9 @@
     ],
   };
   const STATES = [[0, 'Ask'], [T.send, 'Send'], [T.send + 0.45, 'Search'], [T.drop, 'Drop'], [T.slide[0], 'Stays'], [T.lift, 'Best fit'], [T.chat, 'Chat'], [T.click, 'Book it'], [T.done, 'Booked'], [T.fill[0], 'Fill'], [T.line1, 'Line 1'], [T.line2 - 0.1, 'Line 2'], [T.textOut, 'Mark']];
-  window.template = { fps: FPS, duration: DURATION, sizes: { '9:16': [1080, 1920] }, width: W, height: H, defaults: () => ({ size: '9:16', ...DEFAULTS }), fields: FIELDS, states: STATES, prepare, seek: (t, values) => seek(t, values), cues, music,
-    keyTimes: [1.6, 3.2, b(8) + 0.3, b(10) + 0.3, b(13) + 0.5, b(16) + 0.3, b(17) + 0.3, b(19) + 0.4, b(21) + 0.4, b(22) + 0.4, b(25) + 0.3, b(27) - 0.4, b(27) + 0.6, b(29), b(32) + 0.5, b(34) + 0.6, b(36) + 0.9, DURATION - 1.2] };
+  window.template = kit.film({ fps: FPS, duration: DURATION, sizes: { '9:16': [1080, 1920] }, width: W, height: H, defaults: () => ({ size: '9:16', ...DEFAULTS }), fields: FIELDS, states: STATES, prepare, seek: (t, values) => seek(t, values), cues, music,
+    keyTimes: [1.6, 3.2, b(8) + 0.3, b(10) + 0.3, b(13) + 0.5, b(16) + 0.3, b(17) + 0.3, b(19) + 0.4, b(21) + 0.4, b(22) + 0.4, b(25) + 0.3, b(27) - 0.4, b(27) + 0.6, b(29), b(32) + 0.5, b(34) + 0.6, b(36) + 0.9, DURATION - 1.2] });
   const q = new URLSearchParams(location.search);
-  if (window.parent === window && !q.has('render')) prepare().then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION, {}); requestAnimationFrame(loop); }; loop(); });
+  if (window.parent === window && !q.has('render')) window.template.prepare().then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION, {}); requestAnimationFrame(loop); }; loop(); });
 })();
 </script>
