@@ -120,3 +120,7 @@ Read `style.md` before you start and `critique.md` before you judge.
 This skill is omnigami's (https://omnigami.ai), © 2026 Auberon LLC. Use what it makes for anything,
 commercial work included, and change the skill for your own use; don't redistribute or
 sell the skill. Full terms: https://github.com/omnigami-ai/skills/blob/main/LICENSE.md
+
+## Phone display corners
+
+Keep the backing mask inside the photograph's actual opening: its native 490 px width uses a 49 px mask radius (`49 * screenWidth / 490`). The original photograph supplies the final glass edge and bezel. A tighter independent mask exposes background through its transparent opening. Inspect all four corners in a complete device view.

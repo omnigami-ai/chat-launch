@@ -76,7 +76,7 @@
   // is 390 wide and as tall as its photograph's screen, with a 44 px status bar above the page.
   const PHONE_SCREEN = [25, 26, 490, 1118];        // the screen's rect in phone.png's pixels
   const BAR = 44, SW = 390, SH = SW * PHONE_SCREEN[3] / PHONE_SCREEN[2];
-  const SCREEN = { x: 0, y: -BAR, w: SW, h: SH, r: 40 };
+  const SCREEN = { x: 0, y: -BAR, w: SW, h: SH, r: 49 * SW / PHONE_SCREEN[2] };
   const SCR = { img: {}, scale: 4, rects: {}, caps: {} }; // filled from assets/screens/screens.json
   const R = (state, name) => SCR.rects[state][name];
   // a capture's region [x, y, w, h] (its page px) drawn at [x, y] in the world
