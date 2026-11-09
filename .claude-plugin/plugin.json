@@ -1,7 +1,7 @@
 {
   "name": "omnigami-chat-launch",
   "displayName": "Chat launch",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Chat-style launch video for a product you ask for things (an assistant, search, booking, ordering): a request typed into its real composer, the product working one step a beat, its results bursting out, ending on the brand. 23 seconds, tall, with sound. Use when the user asks for a launch video, promo, teaser or motion graphics for such a product.",
   "author": {
     "name": "omnigami",
